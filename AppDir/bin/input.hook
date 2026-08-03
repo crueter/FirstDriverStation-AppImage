@@ -122,6 +122,9 @@ set_group_bits() {
 
 	echo "appdir=$APPDIR appimage = $APPIMAGE"
 	stat -c %G "$APPIMAGE"
+	id
+	ls -l "$APPIMAGE"
+	stat "$APPIMAGE"
 
 	if notify --display-question "$_input_install_msg"; then
 		run_gui_sudo /bin/sh -c "
