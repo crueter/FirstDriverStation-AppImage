@@ -68,7 +68,4 @@ cp "$udev_file" "$udev_dir"
 cp input.hook AppDir/bin
 
 # MAKE APPIMAGE WITH URUNTIME
-echo "-- Generating AppImage... --"
 ./quick-sharun --make-appimage
-
-echo "-- Done --"
