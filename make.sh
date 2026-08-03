@@ -23,8 +23,6 @@ if [ ! -d extracted ]; then
     fi
 
     tar xf "$artifact" -C extracted
-    sudo chgrp input extracted/FirstDriverStation
-    sudo chmod g+s extracted/FirstDriverStation
 fi
 
 # now make appimage
@@ -53,7 +51,8 @@ fi
 mv extracted/*.so AppDir/bin
 mv extracted/FirstDriverStation AppDir/bin
 
-./quick-sharun AppDir/bin/*
+# setcap/getcap are bundled so the input.hook can give the binary capabilities
+./quick-sharun AppDir/bin/* /usr/bin/getcap /usr/bin/setcap
 
 # MAKE APPIMAGE WITH URUNTIME
 ./quick-sharun --make-appimage

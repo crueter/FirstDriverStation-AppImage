@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-# udev hook but also runs chgrp and chmod g+s
+# udev hook but also gives the FirstDriverStation binary the needed capabilities
 
 # Helper script in POSIX shell to install udev rules
 
@@ -15,8 +15,6 @@ set -e
 # user to be in a group, in that case you will need to change this script
 
 _disable_udev=$CACHEDIR/.${APPIMAGE##*/}-udev-check-disabled
-_udev_install_msg="${APPIMAGE##*/} needs udev rules in order to work. Do you wish to install them?"
-_input_install_msg="${APPIMAGE##*/} needs input permissions to work. Do you wish to set them now?"
 
 # make sure we have the needed deps
 _udev_installer_check() {
@@ -58,85 +56,127 @@ _is_rule_already_installed() {
 	[ -n "$1" ] || return 1
 }
 
-_install_udev() {
-	# due to some weird issue I noticed in kubuntu, we do not have
-	# permission to copy the dir from the FUSE filesystem to /usr/local
-	# we need to instead copy the dir first to /tmp and then
-	# copy it over to /usr/local...
+# copy sharun to a writable non-nosuid location so we can give the copy file
+# capabilities and launch the real binary through it, returns 0 on success and
+# sets _workaround_path/_caps_bin
+_input_prepare_workaround() {
+	if [ "$CI" = 'true' ] || [ -z "$APPDIR" ] || [ -z "$APPIMAGE" ]; then
+		return 1
+	elif [ ! -f "$APPDIR"/bin/FirstDriverStation ]; then
+		return 1
+	fi
 
-	# just in case there is something funny there already
-	_tmp_udev_dir=${TMPDIR:-/tmp}/.tmp-udev-rules-${APPDIR##*/}
-	rm -rf "$_tmp_udev_dir"
-	mkdir -p "$_tmp_udev_dir"
-	cp -rv "$_bundled_udev_rules"/* "$_tmp_udev_dir"
+	for dep in setcap getcap ln mkdir cp grep; do
+		is_cmd "$dep" || { notify -ne "Missing dependency: $dep"; return 1; }
+	done
 
-	run_gui_sudo /bin/sh -c "
+	# find a writable location that is not mounted with nosuid
+	if ! grep -q '/tmp .*nosuid' /proc/mounts; then
+		_workaround_path=/tmp/.fds-appimage-hack
+	elif [ -w /var/tmp ] && ! grep -qE '/var/tmp .*nosuid|/var .*nosuid' /proc/mounts; then
+		_workaround_path=/var/tmp/.fds-appimage-hack
+	else
+		_workaround_path=$CACHEDIR/fds-appimage-hack
+	fi
+
+	# some distros don't include sbin in PATH
+	export PATH="$_workaround_path/bin:$PATH:/usr/local/sbin:/usr/sbin:/sbin"
+
+	mkdir -p "$_workaround_path"/bin
+
+	# hack to get capabilities working
+	if [ ! -f "$_workaround_path"/.done ] || [ ! -f "$_workaround_path"/bin/FirstDriverStation ]; then
+		cp "$APPDIR"/sharun "$_workaround_path"
+		cp "$APPDIR"/.env "$_workaround_path" 2>/dev/null || :
+		cp "$APPDIR"/.preload "$_workaround_path" 2>/dev/null || :
+		rm -f "$_workaround_path"/bin/FirstDriverStation
+		cp "$_workaround_path"/sharun "$_workaround_path"/bin/FirstDriverStation
+		: > "$_workaround_path"/.done
+	fi
+
+	ln -sfn "$APPDIR"/etc "$_workaround_path"/etc
+	ln -sfn "$APPDIR"/lib "$_workaround_path"/lib
+	ln -sfn "$APPDIR"/share "$_workaround_path"/share
+	ln -sfn "$APPDIR"/shared "$_workaround_path"/shared
+
+	_caps_bin=$_workaround_path/bin/FirstDriverStation
+	return 0
+}
+
+# caps and udev setup as one command
+# adapted from udev-installer and gpu screen recorder's nonsense
+input_setup() {
+	_input_prepare_workaround || return 0
+
+	# figure out what is missing
+	_udev_needed=""
+	if _udev_installer_check && _is_rule_already_installed; then
+		_udev_needed=1
+	fi
+	_caps_needed=""
+	if [ -z "$(getcap "$_caps_bin" 2>/dev/null)" ]; then
+		_caps_needed=1
+	fi
+
+	if [ -z "$_udev_needed" ] && [ -z "$_caps_needed" ]; then
+		# everything is set up, launch as usual through the capped copy
+		APPDIR=$_workaround_path
+		export APPDIR
+		return 0
+	fi
+
+	_sudo_cmd=""
+	if [ -n "$_udev_needed" ]; then
+		# due to some weird issue I noticed in kubuntu, we do not have
+		# permission to copy the dir from the FUSE filesystem to /usr/local
+		# we need to instead copy the dir first to /tmp and then
+		# copy it over to /usr/local...
+		_tmp_udev_dir=${TMPDIR:-/tmp}/.tmp-udev-rules-${APPDIR##*/}
+		rm -rf "$_tmp_udev_dir"
+		mkdir -p "$_tmp_udev_dir"
+		cp -rv "$_bundled_udev_rules"/* "$_tmp_udev_dir"
+		_sudo_cmd="$_sudo_cmd
           mkdir -p /usr/local/lib/udev/rules.d
           cp -v '$_tmp_udev_dir'/* /usr/local/lib/udev/rules.d
-          command -v udevadm && udevadm control --reload-rules
-          chgrp input $APPIMAGE && chmod g+s $APPIMAGE
-        "
-	notify --display-info "Input rules successfully installed!\nLaunch the AppImage again for the driver station to detect your keyboard."
-	killall "$ARG0"
-}
+          command -v udevadm && udevadm control --reload-rules"
+	fi
 
-install_udev_rules() {
-	_udev_installer_check || return 0
-	_is_rule_already_installed || return 0
-	if notify --display-question "$_udev_install_msg"; then
-		_install_udev
-	else
-		if notify -dq "Do you wish to not see this message again?"; then
-			mkdir -p "$CACHEDIR"
-			: >"$_disable_udev"
+	if [ -n "$_caps_needed" ]; then
+		# cap_dac_override is equivalent to being in the input group
+		_sudo_cmd="$_sudo_cmd
+          setcap cap_dac_override+ep '$_caps_bin'"
+	fi
+
+	if [ -n "$_udev_needed" ]; then
+		_msg="${APPIMAGE##*/} needs input permissions in order to work. Do you wish to set them up now?"
+		if ! notify --display-question "$_msg"; then
+			if notify -dq "Do you wish to not see this message again?"; then
+				mkdir -p "$CACHEDIR"
+				: > "$_disable_udev"
+			fi
+			return 0
 		fi
 	fi
-}
 
-# TODO: debug this on gentoo
-_set_group_check() {
-	if [ "$CI" = 'true' ]; then
-		echo "CI is true"
-		return 1
-	elif [ -z "$APPDIR" ] || [ -z "$APPIMAGE" ]; then
-		echo "appdir=$APPDIR appimage = $APPIMAGE"
-		return 1
-	elif ! is_cmd chgrp chmod; then
-		echo "couldn't find chgrp or chmod"
-		return 1
-	elif ! run_gui_sudo --check; then
-		echo "run_gui_sudo failed"
-		return 1
-	elif [ -g "$APPIMAGE" ] && [ "$(stat -c %G "$APPIMAGE")" = "input" ]; then
-		stat -c %G "$APPIMAGE"
-		return 1
-	fi
-}
-
-set_group_bits() {
-	_set_group_check || return 0
-
-	if [ -g "$APPIMAGE" ]; then
-		echo "AppImage has group bit set"
+	if ! run_gui_sudo --check; then
+		err_msg "No 'pkexec' or 'lxqt-sudo' or 'run0' found!"
+		err_msg "We are going to continue but things will likely break"
+		return 0
 	fi
 
-	echo "appdir=$APPDIR appimage = $APPIMAGE"
-	stat -c %G "$APPIMAGE"
-	id
-	ls -l "$APPIMAGE"
-	stat "$APPIMAGE"
+	run_gui_sudo sh -c "$_sudo_cmd" || {
+		err_msg "Failed to set up input permissions!"
+		err_msg "You may fix this manually by running: sudo $_sudo_cmd"
+		return 0
+	}
 
-	if notify --display-question "$_input_install_msg"; then
-		run_gui_sudo /bin/sh -c "
-		  chgrp input $APPIMAGE && chmod g+s $APPIMAGE
-		"
-
-		notify --display-info "Input rules successfully installed!\nLaunch the AppImage again for the driver station to detect your keyboard."
-		killall "$ARG0"
-	else
-		notify --display-info "You may fix this manually by running the following commands:\nchgrp input ${APPIMAGE##*/}\nchmod g+s ${APPIMAGE##*/}"
+	if [ -n "$_udev_needed" ]; then
+		notify -ni "Input rules and capabilities successfully set up"
 	fi
+
+	# override APPDIR now so that the AppRun launches the right binaries
+	APPDIR=$_workaround_path
+	export APPDIR
 }
 
-install_udev_rules || :
-set_group_bits || :
+input_setup || :
