@@ -7,7 +7,7 @@ echo "---------------------------------------------------------------"
 pacman -Syu --noconfirm --overwrite "*" \
 	avahi base-devel curl fontconfig jack2 jq libinput patchelf strace wget xorg-server-xvfb zsync \
 	libxcursor libxrender libxfixes libxi libxinerama libxss libxtst libxcb libxkbcommon libxkbcommon-x11 \
-	libpulse libsndfile libasyncns libogg libvorbis flac mpg123 libmp3lame libva libvdpau
+	libpulse libsndfile libasyncns libogg libvorbis flac mpg123 lame libva libvdpau
 
 echo "Installing debloated packages..."
 echo "---------------------------------------------------------------"
