@@ -1,8 +1,4 @@
 quick-sharun
 artifacts
 extracted
-AppDir/*
-!AppDir/bin/input.hook
-!AppDir/FirstDriverStation.png
-!AppDir/FirstDriverStation.desktop
 *.tar.gz
