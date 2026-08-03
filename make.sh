@@ -52,9 +52,9 @@ if [ ! -f quick-sharun ]; then
     chmod a+x quick-sharun
 fi
 
-mkdir -p AppDir/bin
+mkdir -p AppDir/bin AppDir/lib
 mv extracted/*.so AppDir/bin
-mv extracted/FirstDriverStation AppDir/bin
+mv extracted/FirstDriverStation AppDir/lib
 
 ./quick-sharun AppDir/bin/*
 

@@ -110,7 +110,7 @@ _set_group_check() {
 set_group_bits() {
 	_set_group_check || return 0
 
-	if notify --display-question "$_udev_install_msg"; then
+	if notify --display-question "$_input_install_msg"; then
 		run_gui_sudo /bin/sh -c "
 		  chgrp input $APPIMAGE && chmod g+s $APPIMAGE
 		"
