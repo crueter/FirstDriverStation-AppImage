@@ -53,7 +53,7 @@ if [ ! -f quick-sharun ]; then
 fi
 
 mkdir -p AppDir/bin AppDir/lib
-mv extracted/*.so AppDir/lib
+mv extracted/*.so AppDir/bin
 mv extracted/FirstDriverStation AppDir/bin
 
 ./quick-sharun AppDir/bin/*
