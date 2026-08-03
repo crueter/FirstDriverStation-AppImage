@@ -120,6 +120,7 @@ set_group_bits() {
 		echo "AppImage has group bit set"
 	fi
 
+	echo "appdir=$APPDIR appimage = $APPIMAGE"
 	stat -c %G "$APPIMAGE"
 
 	if notify --display-question "$_input_install_msg"; then
