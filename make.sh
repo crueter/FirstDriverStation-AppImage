@@ -31,8 +31,6 @@ fi
 SHARUN="https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/refs/heads/main/useful-tools/quick-sharun.sh"
 
 # variables to be used on quick-sharun and uruntime2appimage
-export ICON=FirstDriverStation.png
-export DESKTOP=FirstDriverStation.desktop
 export OPTIMIZE_LAUNCH=1
 export DEPLOY_OPENGL=1
 export DEPLOY_VULKAN=0
@@ -52,20 +50,10 @@ if [ ! -f quick-sharun ]; then
     chmod a+x quick-sharun
 fi
 
-mkdir -p AppDir/bin AppDir/lib
 mv extracted/*.so AppDir/bin
 mv extracted/FirstDriverStation AppDir/bin
 
 ./quick-sharun AppDir/bin/*
-
-# udev
-udev_dir=AppDir/etc/udev/rules.d
-udev_file=72-hidraw.rules
-mkdir -p "$udev_dir"
-cp "$udev_file" "$udev_dir"
-
-# custom hook
-cp input.hook AppDir/bin
 
 # MAKE APPIMAGE WITH URUNTIME
 ./quick-sharun --make-appimage

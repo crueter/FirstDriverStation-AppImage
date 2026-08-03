@@ -93,16 +93,23 @@ install_udev_rules() {
 	fi
 }
 
+# TODO: debug this on gentoo
 _set_group_check() {
 	if [ "$CI" = 'true' ]; then
+		echo "CI is true"
 		return 1
 	elif [ -z "$APPDIR" ] || [ -z "$APPIMAGE" ]; then
+		echo "appdir=$APPDIR appimage = $APPIMAGE"
 		return 1
 	elif ! is_cmd chgrp chmod; then
+		echo "couldn't find chgrp or chmod"
 		return 1
 	elif ! run_gui_sudo --check; then
+		echo "run_gui_sudo failed"
 		return 1
 	elif [ -g "$APPIMAGE" ] && [ "$(stat -c %G "$APPIMAGE")" = "input" ]; then
+		[ -g "$APPIMAGE" ] || echo "-g is false";
+		stat -c %G "$APPIMAGE"
 		return 1
 	fi
 }

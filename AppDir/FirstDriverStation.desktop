@@ -7,5 +7,5 @@ Icon=FirstDriverStation
 TryExec=FirstDriverStation
 Exec=FirstDriverStation
 Categories=Game;Education
-Keywords=first;driver;station
+Keywords=first;driver;station;ds
 StartupWMClass=FirstDriverStation
