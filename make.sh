@@ -52,7 +52,11 @@ if [ ! -f quick-sharun ]; then
     chmod a+x quick-sharun
 fi
 
-./quick-sharun extracted/FirstDriverStation extracted/*.so
+mkdir -p AppDir/bin
+mv extracted/*.so AppDir/bin
+mv extracted/FirstDriverStation AppDir/bin
+
+./quick-sharun AppDir/bin/*
 
 # udev
 udev_dir=AppDir/etc/udev/rules.d
