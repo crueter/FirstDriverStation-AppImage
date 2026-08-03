@@ -5,7 +5,7 @@ EXTRA_PACKAGES="https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImage
 echo "Installing build dependencies..."
 echo "---------------------------------------------------------------"
 pacman -Syu --noconfirm --overwrite "*" \
-	base-devel patchelf curl jq strace xorg-server-xvfb zsync
+	base-devel patchelf curl jq strace wget xorg-server-xvfb zsync
 
 echo "Installing debloated packages..."
 echo "---------------------------------------------------------------"
