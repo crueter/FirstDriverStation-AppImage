@@ -51,8 +51,19 @@ fi
 mv extracted/*.so AppDir/bin
 mv extracted/FirstDriverStation AppDir/bin
 
+# Workaround for harfbuzz symbol collisions (thank you microsoft)
+# See: https://github.com/lseurttyuu/GPU-T/pull/114
+# See: https://github.com/mono/SkiaSharp/issues/3038
+HARFBUZZ_PATH=$(ldconfig -p | awk '/libharfbuzz.so.0/ {print $4; exit}')
+cp "$HARFBUZZ_PATH" ./AppDir/bin/libharfbuzz.so.0
+rm -f ./AppDir/bin/libHarfBuzzSharp.so
+ln -s libharfbuzz.so.0 ./AppDir/bin/libHarfBuzzSharp.so
+
 # setcap/getcap are bundled so the input.hook can give the binary capabilities
 ./quick-sharun AppDir/bin/* /usr/bin/getcap /usr/bin/setcap
+
+# what
+rm AppDir/lib/libicu*
 
 # MAKE APPIMAGE WITH URUNTIME
 ./quick-sharun --make-appimage
