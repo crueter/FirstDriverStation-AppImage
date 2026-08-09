@@ -34,7 +34,6 @@ export DEPLOY_OPENGL=1
 export DEPLOY_VULKAN=0
 export VERSION="$tag"
 
-export ADD_HOOKS="wayland-is-broken.hook"
 export OUTPATH="artifacts"
 export OUTNAME="FirstDriverStation-linux-${arch}-${version}.AppImage"
 export UPINFO="gh-releases-zsync|$owner|$name|latest|*$arch*.AppImage.zsync"
